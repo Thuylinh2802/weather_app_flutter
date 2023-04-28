@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter_geocoder/geocoder.dart';
+import 'package:weather_app_flutter/Screen/searchPage.dart';
 import 'package:weather_app_flutter/Screen/weeklyWeatherPage.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../Helper/utils.dart';
+import 'package:diacritic/diacritic.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,8 +24,6 @@ class _HomePageState extends State<HomePage> {
   static String API_Key = '1a68389fd8154e089e6153255233101';
   String searchWeatherAPI = 'https://api.weatherapi.com/v1/forecast.json?key=$API_Key&q=';
 
-  double lat = 21.03;
-  double long = 105.85;
   String location = 'london';
   var currentWeather;
   int temperature = 0;
@@ -38,35 +39,32 @@ class _HomePageState extends State<HomePage> {
   List hourlyWeatherForecast = [];
   List weeklyWeatherForecast = [];
 
-  Future<void> fetchWeatherData(double lat, double long) async {
-    try {
-      
-      var result = await http.get(Uri.parse('$searchWeatherAPI$lat,$long&days=7&aqi=no&alerts=no'));
-      Map<String, dynamic> weatherData = jsonDecode(result.body);
-      location = weatherData['location']['name'];
+  Future<void> fetchWeatherData(String searchText) async {
+    var result = await http.get(Uri.parse('$searchWeatherAPI$searchText&days=7&aqi=no&alerts=no'));
+    Map<String, dynamic> weatherData = jsonDecode(result.body);
+    location = weatherData['location']['name'];
+   
+    var aqiSearch = await http.get(Uri.parse('http://api.waqi.info/feed/$location/?token=0cc4deb2e2d13a737a98d776145012fb35ac2efa'));
+    Map<String, dynamic> aqiData = jsonDecode(aqiSearch.body);
 
-      var aqiSearch = await http.get(Uri.parse('http://api.waqi.info/feed/$location/?token=0cc4deb2e2d13a737a98d776145012fb35ac2efa'));
-      Map<String, dynamic> aqiData = jsonDecode(aqiSearch.body);
+    currentWeather = weatherData["current"];
+    temperature = currentWeather['temp_c'].toInt();
+    uvIndex = currentWeather['uv'].toInt();
+    precipitation = currentWeather['precip_mm'].toDouble();
+    currentWeatherStatus = currentWeather['condition']['text'];
+    var parsedDate = DateTime.parse(weatherData['location']["localtime"].substring(0, 10));
+    currentDate = DateFormat('MMMMEEEEd').format(parsedDate);
+    aqiIndex = aqiData['data']['aqi'];
 
-      currentWeather = weatherData["current"];
-      temperature = currentWeather['temp_c'].toInt();
-      uvIndex = currentWeather['uv'].toInt();
-      precipitation = currentWeather['precip_mm'].toDouble();
-      currentWeatherStatus = currentWeather['condition']['text'];
-      var parsedDate = DateTime.parse(weatherData['location']["localtime"].substring(0, 10));
-      currentDate = DateFormat('MMMMEEEEd').format(parsedDate);
-      aqiIndex = aqiData['data']['aqi'];
+    weeklyWeatherForecast = weatherData['forecast']['forecastday'];
+    hourlyWeatherForecast = weeklyWeatherForecast[0]['hour'];
 
-      weeklyWeatherForecast = weatherData['forecast']['forecastday'];
-      hourlyWeatherForecast = weeklyWeatherForecast[0]['hour'];
-
-      maxTemp = weeklyWeatherForecast[0]['day']['maxtemp_c'].toInt();
-      minTemp = weeklyWeatherForecast[0]['day']['mintemp_c'].toInt();
-      //print(weeklyWeatherForecast.length);
-    } catch (e) {}
+    maxTemp = weeklyWeatherForecast[0]['day']['maxtemp_c'].toInt();
+    minTemp = weeklyWeatherForecast[0]['day']['mintemp_c'].toInt();
+    //print(weeklyWeatherForecast.length);
   }
 
-  void getPosition() async {
+  void getCurrentPosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -88,25 +86,18 @@ class _HomePageState extends State<HomePage> {
           'Location permissions are permanently denied, we cannot request permissions.');
     }
     final Position currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    lat = currentPosition.latitude;
-    long = currentPosition.longitude;
+    double latitude = 21.028511;
+    double longitude = 105.804817;
+    final coordinates = Coordinates(latitude, longitude);
+    List<Address> addresses = await Geocoder.local.findAddressesFromCoordinates(coordinates);
+    Address first = addresses.first;
+    String cityName = removeDiacritics(first.adminArea!);
+    fetchWeatherData(cityName);
   }
-
-  Future<void> searchLocation(String searchText) async {
-      try {
-        var resultSearch = await http.get(Uri.parse('$searchWeatherAPI$searchText&days=7&aqi=no&alerts=no'));
-        Map<String, dynamic> searchData = jsonDecode(resultSearch.body);
-        lat = searchData['location']['lat'].toDouble();
-        long = searchData['location']['lon'].toDouble();
-        fetchWeatherData(lat, long);
-      }
-      catch (e) {}
-    }
 
   @override
   void initState() {
-    getPosition();
-    fetchWeatherData(lat, long);
+    getCurrentPosition();
     super.initState();
   }
 
@@ -137,7 +128,7 @@ class _HomePageState extends State<HomePage> {
               ),
               child: TextField(
                 onChanged: (searchText) {
-                  searchLocation(searchText);
+                  fetchWeatherData(searchText);
                 },
                 controller: _textController,
                 decoration: const InputDecoration(
@@ -330,7 +321,9 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => 
-                        WeeklyPage(weeklyWeatherForecast: weeklyWeatherForecast, currentWeather: currentWeather)),
+                        // WeeklyPage(weeklyWeatherForecast: weeklyWeatherForecast, currentWeather: currentWeather)
+                        SearchWeatherList()
+                        ),
                       );
                     }, 
                     child: const Text(
