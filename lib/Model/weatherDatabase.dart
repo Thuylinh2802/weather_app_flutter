@@ -29,13 +29,20 @@ class WeatherDatabase {
       ''');
   }
 
-  Future<Weather> insert(Weather weather) async {
+  Future<int?>insert(WeatherDB weather) async {
     final db = await instance.database;
-    weather.id = await db.insert('Weather', weather.toMap());
-    return weather;
+    final existingWeather = await db.rawQuery(
+      'SELECT * FROM Weather WHERE cityName = ?', [weather.cityName]);
+    if (existingWeather.isNotEmpty) {
+      return -1;
+    }
+    else {
+      weather.id = await db.insert('Weather', weather.toMap());
+      return weather.id;
+    }  
   }
 
-  Future<Weather> get(int id) async {
+  Future<WeatherDB> get(int id) async {
     final db = await instance.database;
 
     final maps = await db.query(
@@ -46,21 +53,21 @@ class WeatherDatabase {
     );
 
     if (maps.isNotEmpty) {
-      return Weather.fromMap(maps.first);
+      return WeatherDB.fromMap(maps.first);
     } else {
       throw Exception('ID $id not found');
     }
   }
 
-  Future<List<Weather>> getAll() async {
+  Future<List<WeatherDB>> getAll() async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query('weather');
     return List.generate(maps.length, (i) {
-      return Weather.fromMap(maps[i]);
+      return WeatherDB.fromMap(maps[i]);
     });
   }
 
-  Future<void> update(Weather weather) async {
+  Future<void> update(WeatherDB weather) async {
     final db = await instance.database;
 
     await db.update(

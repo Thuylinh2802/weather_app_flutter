@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
 
 import '../Helper/utils.dart';
+import '../Provider/weatherProvider.dart';
 
 class WeeklyPage extends StatefulWidget {
-  final weeklyWeatherForecast;
-  final currentWeather;
 
-  const WeeklyPage({super.key, this.weeklyWeatherForecast, this.currentWeather});
+  const WeeklyPage({Key? key}) : super(key: key);
 
   @override
   State<WeeklyPage> createState() => _WeeklyPageState();
@@ -18,14 +18,14 @@ class _WeeklyPageState extends State<WeeklyPage> {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    final provider = Provider.of<WeatherProvider>(context);
+    final weather = provider.state.currentWeather;
+    final dailyForecasts = provider.state.currentWeather?.dailyForecasts;
 
-    var forecastWeather = widget.weeklyWeatherForecast;
-    var currentWeather= widget.currentWeather;
-
-    String currentHumidity = currentWeather['humidity'].round().toString();
-    String currentWindSpeed = currentWeather['wind_kph'].round().toString();
-    String currentFeelslike = currentWeather['feelslike_c'].round().toString();
-    String currentCloud = currentWeather['cloud'].round().toString();
+    int currentHumidity = weather!.humidity;
+    int currentWindSpeed = weather.windSpeed;
+    int currentFeelslike = weather.feelslike;
+    int currentCloud = weather.cloud;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,10 +41,10 @@ class _WeeklyPageState extends State<WeeklyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 20, top: 10, bottom: 10),
               child: Text(
-                'Today Details',
+                weather.cityName,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -278,12 +278,12 @@ class _WeeklyPageState extends State<WeeklyPage> {
             SizedBox(
               height: size.height * 0.8,
               child: ListView.builder(
-                itemCount: forecastWeather.length,
+                itemCount: dailyForecasts!.length,
                 itemBuilder: (context, index) {
-                  int maxTemperature = forecastWeather[index]['day']['maxtemp_c'].round().toInt();
-                  int minTemperature = forecastWeather[index]['day']['mintemp_c'].round().toInt();
-                  String weatherStatus = forecastWeather[index]['day']['condition']['text'];
-                  var date = DateFormat('MMMMEEEEd').format(DateTime.parse(forecastWeather[index]["date"]));
+                  int maxTemperature = dailyForecasts[index]['day']['maxtemp_c'].round().toInt();
+                  int minTemperature = dailyForecasts[index]['day']['mintemp_c'].round().toInt();
+                  String weatherStatus = dailyForecasts[index]['day']['condition']['text'];
+                  var date = DateFormat('MMMMEEEEd').format(DateTime.parse(dailyForecasts[index]["date"]));
 
                   return Container(
                     margin: const EdgeInsets.only(left: 20, right: 20, top: 10),
